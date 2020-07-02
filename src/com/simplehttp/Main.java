@@ -1,12 +1,14 @@
 package com.simplehttp;
 
 import com.simplehttp.catalina.HttpStateMachine;
+import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 
 public class Main {
-    public static void main(String[] args) throws Exception {
+    @Test
+    public void testHttpStateMachine() throws Exception {
         String http1 = "GET /a/sb.mother.jsp/haha HTTP/1.1\r\n" +
                 "nmsl:ok\r\n\r\n";
 
@@ -64,5 +66,9 @@ public class Main {
 
         System.out.printf("%d %d\n", sm.requestBytesList.size(), smm.requestBytesList.size());
         System.out.println(rec.equals(http));
+    }
+
+    public static void main(String[] args) throws Exception {
+
     }
 }

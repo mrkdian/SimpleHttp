@@ -10,7 +10,7 @@ import java.io.InputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 
-public class HttpReader implements Runnable {
+public class HttpBlockingReader implements Runnable {
 
     private HttpStateMachine stateMachine;
     private int readBufSize = 1024;
@@ -18,7 +18,7 @@ public class HttpReader implements Runnable {
     private Connector connector;
     private Socket socket;
 
-    public HttpReader(Socket s, Connector connector) {
+    public HttpBlockingReader(Socket s, Connector connector) {
         this.stateMachine = new HttpStateMachine();
         this.readBuf = new byte[readBufSize];
         this.connector = connector;
@@ -36,7 +36,7 @@ public class HttpReader implements Runnable {
                 stateMachine.feed(readBuf, 0, n);
                 while(stateMachine.requestBytesList.size() > 0) {
                     byte[] requestBytes = stateMachine.requestBytesList.removeFirst();
-                    Request request = new Request(socket, connector, requestBytes);
+                    Request request = new Request(connector, requestBytes);
                     Response response = new Response();
                     LogFactory.get().info(StrUtil.format("{} {} {}",
                             request.getMethod(), request.getUri(), socket.toString()));

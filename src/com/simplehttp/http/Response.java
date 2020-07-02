@@ -47,7 +47,7 @@ public class Response extends BaseResponse {
         return writer;
     }
     public byte[] getBody() throws UnsupportedEncodingException {
-        if(null==body) {
+        if(null == body) {
             String content = stringWriter.toString();
             body = content.getBytes("utf-8");
         }

@@ -2,7 +2,6 @@ package com.simplehttp.catalina;
 
 import com.simplehttp.util.Constant;
 import com.simplehttp.util.ServerXMLUtil;
-import com.simplehttp.watcher.WarFileWatcher;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.core.util.StrUtil;
@@ -25,8 +24,6 @@ public class Host {
         scanContextsOnWebAppsFolder();
         scanContextsInServerXML();
         scanWarOnWebAppsFolder();
-
-        new WarFileWatcher(this).start();
     }
 
     public String getName() {

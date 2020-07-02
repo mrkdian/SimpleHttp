@@ -1,25 +1,21 @@
 package com.simplehttp.catalina;
  
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
- 
-import com.simplehttp.http.Request;
-import com.simplehttp.http.Response;
+
 import com.simplehttp.util.ThreadPoolUtil;
 import cn.hutool.log.LogFactory;
 
 public class Connector implements Runnable {
-    int port;
-    private Service service;
+    public int port;
+    protected Service service;
 
-    private String compression;
-    private int compressionMinSize;
-    private String noCompressionUserAgents;
-    private String compressableMimeType;
-    private int keepAliveTimeout = 2 * 60 * 1000;
+    protected String compression;
+    protected int compressionMinSize;
+    protected String noCompressionUserAgents;
+    protected String compressableMimeType;
+    protected int keepAliveTimeout = 2 * 60 * 1000;
 
     public String getCompression() {
         return compression;
@@ -73,12 +69,11 @@ public class Connector implements Runnable {
                 Socket s = ss.accept();
                 //System.out.println("accept!: " + s.toString());
                 s.setSoTimeout(keepAliveTimeout);
-                Runnable r = new HttpReader(s, this);
+                Runnable r = new HttpBlockingReader(s, this);
                 ThreadPoolUtil.run(r);
             }
         } catch (IOException e) {
             LogFactory.get().error(e);
-            e.printStackTrace();
         }
     }
  

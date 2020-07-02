@@ -21,7 +21,7 @@ public class Engine {
     }
 
     private void checkDefault() {
-        if(null==getDefaultHost())
+        if(null == getDefaultHost())
             throw new RuntimeException("the defaultHost" + defaultHost + " does not exist!");
     }
 

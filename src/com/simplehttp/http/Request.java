@@ -4,9 +4,7 @@ import com.simplehttp.catalina.Connector;
 import com.simplehttp.catalina.Context;
 import com.simplehttp.catalina.Engine;
 import com.simplehttp.catalina.Service;
-import com.simplehttp.util.MiniBrowser;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.convert.Converter;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
@@ -16,8 +14,6 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletContext;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpSession;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.StringReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -40,12 +36,11 @@ public class Request extends BaseRequest{
     private Connector connector;
     private boolean forwarded;
 
-    public Request(Socket socket,  Connector connector, byte[] requestBytes) throws IOException {
+    public Request(Connector connector, byte[] requestBytes) {
         this.parameterMap = new HashMap();
         this.headerMap = new HashMap<>();
         this.attributesMap = new HashMap<>();
 
-        this.socket = socket;
         this.connector = connector;
         this.requestString = new String(requestBytes, StandardCharsets.US_ASCII);
         //parseHttpRequest();
@@ -73,7 +68,7 @@ public class Request extends BaseRequest{
         Service service = connector.getService();
         Engine engine = service.getEngine();
         context = engine.getDefaultHost().getContext(uri);
-        if(null!=context)
+        if(null != context)
             return;
         String path = StrUtil.subBetween(uri, "/", "/");
         if (null == path)

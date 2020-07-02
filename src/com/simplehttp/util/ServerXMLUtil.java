@@ -25,7 +25,13 @@ public class ServerXMLUtil {
             int compressionMinSize = Convert.toInt(e.attr("compressionMinSize"), 0);
             String noCompressionUserAgents = e.attr("noCompressionUserAgents");
             String compressableMimeType = e.attr("compressableMimeType");
-            Connector c = new Connector(service);
+            String ioType = e.attr("ioType");
+            Connector c;
+            if(ioType.equals("reactor")) {
+                c = new ReactorConnector(service);
+            } else {
+                c = new Connector(service);
+            }
             c.setPort(port);
             c.setCompression(compression);
             c.setCompressableMimeType(compressableMimeType);
