@@ -8,7 +8,7 @@ import java.io.IOException;
 public class HelloServlet extends HttpServlet {
     public void doGet(HttpServletRequest request, HttpServletResponse response){
         try {
-            response.getWriter().println("Hello DIY Tomcat from HelloServlet");
+            response.getWriter().println("HelloServlet");
         } catch (IOException e) {
             e.printStackTrace();
         }

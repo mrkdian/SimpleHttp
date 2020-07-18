@@ -107,9 +107,6 @@ public class Context {
             contextFileChangeWatcher = new ContextFileChangeWatcher(this);
             contextFileChangeWatcher.start();
         }
-
-        JspC c = new JspC();
-        new JspRuntimeContext(servletContext, c);
     }
 
     private void init() {
