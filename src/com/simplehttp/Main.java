@@ -7,12 +7,15 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.lang.ref.SoftReference;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.Driver;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
     class Heap {
@@ -145,30 +148,138 @@ public class Main {
         System.out.println(rec.equals(http));
     }
 
-    public static void main(String[] args) throws Exception {
-        ServiceLoader<Driver> matcher = ServiceLoader.load(java.sql.Driver.class, new MyClassLoader());
-        Iterator<Driver> matcherIter = matcher.iterator();
-        while (matcherIter.hasNext()) {
-            Driver wordMatcher = matcherIter.next();
-            System.out.println(wordMatcher.getClass().getName());
+    @Test
+    public void sequentialThree() throws Exception {
+        ReentrantLock lock12 = new ReentrantLock();
+        Condition c12 = lock12.newCondition();
+        ReentrantLock lock23 = new ReentrantLock();
+        Condition c23 = lock12.newCondition();
+        ReentrantLock lock31 = new ReentrantLock();
+        Condition c31 = lock12.newCondition();
+
+        Semaphore s12 = new Semaphore(0);
+        Semaphore s23 = new Semaphore(0);
+        Semaphore s31 = new Semaphore(1);
+
+        AtomicInteger count = new AtomicInteger(0);
+
+        CyclicBarrier cb = new CyclicBarrier(3);
+
+        CountDownLatch cd1 = new CountDownLatch(1);
+        CountDownLatch cd2 = new CountDownLatch(1);
+
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                boolean first = true;
+                lock12.lock();
+                try {
+                    while(count.get() < 100) {
+                        if(first) {
+                            first = false;
+                        } else {
+                            c31.await();
+                        }
+                        cd1.countDown();
+                        count.incrementAndGet();
+                        System.out.println(Thread.currentThread().getName() + " " + count.get());
+                        c12.signalAll();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }).start();
+
+        cd1.await();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                lock12.lock();
+                try {
+                    boolean first = true;
+                    while(count.get() < 100) {
+                        if(first) {
+                            first = false;
+                        } else {
+                            c12.await();
+                        }
+                        cd2.countDown();
+                        count.incrementAndGet();
+                        System.out.println(Thread.currentThread().getName() + " " + count.get());
+                        c23.signalAll();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }).start();
+
+        cd2.await();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                lock12.lock();
+                try {
+                    boolean first = true;
+                    while(count.get() < 100) {
+                        if(first) {
+                            first = false;
+                        } else {
+                            c23.await();
+                        }
+                        count.incrementAndGet();
+                        System.out.println(Thread.currentThread().getName() + " " + count.get());
+                        c31.signalAll();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }).start();
+
+    }
+
+    static class VolatileExample {
+        int x = 0 ;
+        volatile boolean v = false;
+        public void writer(){
+            x = 42;
+            v = true;
+        }
+
+        public int reader(){
+            int count = 0;
+            while(true) {
+                if(v) {
+                    return 123;
+                } else {
+                    count++;
+                    //System.out.println("false");
+                }
+            }
         }
     }
-}
 
-class MyClassLoader extends URLClassLoader {
+    public static void main(String[] args) throws Exception {
 
-    public MyClassLoader() {
-        super(new URL[] {}, Thread.currentThread().getContextClassLoader());
+        System.out.println(test());
+    }
 
+    public static Integer test() {
         try {
-            File jdbc = new File("webapps/j2ee/WEB-INF/lib/mysql-connector-java-5.0.8-bin.jar");
-            URL url = new URL("file:" + jdbc.getAbsolutePath());
-            System.out.println(jdbc.getAbsolutePath());
-            System.out.println(jdbc.exists());
-            this.addURL(url);
+            int a = 5 / 0;
+            return null;
         } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+
         }
+        return 9;
     }
 }

@@ -87,7 +87,7 @@ public class Context {
         this.servletPool = new HashMap<>();
         this.filterPool = new HashMap<>();
 
-        listeners=new ArrayList<ServletContextListener>();
+        listeners = new ArrayList<ServletContextListener>();
 
         LogFactory.get().info("Deploying web application directory {}", this.docBase);
         deploy();
@@ -320,7 +320,7 @@ public class Context {
             String filterName = mappingurlElement.parent().select("filter-name").first().text();
 
             List<String> filterNames= url_FilterNames.get(urlPattern);
-            if(null==filterNames) {
+            if(null == filterNames) {
                 filterNames = new ArrayList<>();
                 url_FilterNames.put(urlPattern, filterNames);
             }
@@ -346,7 +346,7 @@ public class Context {
             for (String filterName : filterNames) {
                 String filterClassName = filterName_className.get(filterName);
                 List<String> filterClassNames = url_filterClassName.get(url);
-                if(null==filterClassNames) {
+                if(null == filterClassNames) {
                     filterClassNames = new ArrayList<>();
                     url_filterClassName.put(url, filterClassNames);
                 }

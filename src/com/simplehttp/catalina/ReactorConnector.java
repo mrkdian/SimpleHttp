@@ -1,18 +1,17 @@
 package com.simplehttp.catalina;
 
+import cn.hutool.core.collection.ConcurrentHashSet;
 import cn.hutool.log.LogFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.PriorityQueue;
-import java.util.Set;
-
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class ReactorConnector extends Connector {
@@ -21,6 +20,8 @@ public class ReactorConnector extends Connector {
     private HttpReadSelector[] subReactors;
     private Thread[] subReactorThreads;
     private int subPointer = 0;
+
+    private ConcurrentHashMap<InetAddress, SocketChannel> connectedIP = new ConcurrentHashMap<>();
 
     public ReactorConnector(Service service) {
         super(service);
@@ -47,9 +48,21 @@ public class ReactorConnector extends Connector {
 
                     if(key.isAcceptable()) {
                         SocketChannel sc = ssc.accept();
-                        //System.out.println("Accept: " + sc.socket().toString());
+                        InetAddress ip = ((InetSocketAddress)sc.getRemoteAddress()).getAddress();
+                        if(connectedIP.containsKey(ip)) {
+                            SocketChannel osc = connectedIP.get(ip);
+                            if(!osc.socket().isClosed()) {
+                                // the connect must close exclusive. may lead to race condition, not good
+                                sc.close();
+                                continue;
+                            }
+                        }
+                        connectedIP.put(ip, sc);
+                        System.out.println("Accept: " + sc.socket().toString());
                         sc.configureBlocking(false);
                         dispatch(sc);
+                        ((InetSocketAddress) sc.getRemoteAddress()).getAddress();
+                        InetSocketAddress c;
                     }
                 }
             }
@@ -58,6 +71,11 @@ public class ReactorConnector extends Connector {
             LogFactory.get().error(e);
         }
     }
+
+    synchronized public void removeIPRecord(InetAddress ip) {
+        this.connectedIP.remove(ip);
+    }
+
 
     synchronized public void dispatch(SocketChannel sc) throws IOException {
         //System.out.println("register to sub Reactor " + subPointer);

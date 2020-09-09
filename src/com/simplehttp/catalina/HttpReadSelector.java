@@ -1,5 +1,6 @@
 package com.simplehttp.catalina;
 
+import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.log.LogFactory;
 import com.simplehttp.http.Request;
@@ -8,6 +9,7 @@ import com.simplehttp.util.ThreadPoolUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -66,7 +68,7 @@ public class HttpReadSelector implements Runnable{
     public Connector connector;
     public int id;
 
-    public int getRegisterNam() {
+    public int getRegisterNum() {
         return selector.keys().size();
     }
 
@@ -113,23 +115,32 @@ public class HttpReadSelector implements Runnable{
                 buf.clear();
             }
             if(n < 0) {
-                System.out.printf("sub Reactor %d off connect\n", id);
                 key.cancel();
-                sc.close();
+                closeSocketChannel(sc, true);
+                return null;
             }
         } catch (IOException e) {
-            System.out.printf("sub Reactor %d off connect\n", id);
             LogFactory.get().error(e);
             key.cancel();
-            sc.close();
+            closeSocketChannel(sc, false);
         }
         return baos.toByteArray();
     }
 
+    public void closeSocketChannel(SocketChannel sc, boolean normal) throws IOException {
+        InetAddress ip = ((InetSocketAddress)sc.getRemoteAddress()).getAddress();
+        ReactorConnector connector = (ReactorConnector) this.connector;
+        connector.removeIPRecord(ip);
+        ThreadPoolUtil.removeKey(sc);
+        sc.close();
+        LogFactory.get().info(String.format("connect to %s %s close", ip.toString(), normal ? "normally" : "abnormally"));
+    }
+
+
     @Override
     public void run() {
-        try {
-            while(true) {
+        while(true) {
+            try {
                 registerToSelector();
                 int n = selector.select();
                 Set<SelectionKey> selectionKeys = selector.selectedKeys();
@@ -142,14 +153,16 @@ public class HttpReadSelector implements Runnable{
                     if(key.isReadable()) {
                         SocketChannel sc = (SocketChannel) key.channel();
                         byte[] data = read(sc, key);
+                        if(data == null) continue;
                         HttpStateMachine stateMachine = (HttpStateMachine) key.attachment();
                         //System.out.printf("sub Reactor %d process request\n", id);
                         ThreadPoolUtil.runByOrder(new HttpWorkRunner(stateMachine, data, this, sc), sc);
                     }
                 }
+            } catch (IOException e) {
+                LogFactory.get().error(e);
             }
-        } catch (IOException e) {
-            LogFactory.get().error(e);
+
         }
     }
 }

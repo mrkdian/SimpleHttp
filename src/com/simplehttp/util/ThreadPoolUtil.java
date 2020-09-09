@@ -1,13 +1,11 @@
 package com.simplehttp.util;
 
-import java.util.HashMap;
+import cn.hutool.log.LogFactory;
+
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class ThreadPoolUtil {
 	private static ThreadPoolExecutor threadPool = new ThreadPoolExecutor(20, 100, 60, TimeUnit.SECONDS,
@@ -23,15 +21,17 @@ public class ThreadPoolUtil {
 	    orderThreadPool.execute(r, key);
     }
 
+    public static void removeKey(Object key) {
+		orderThreadPool.removeKey(key);
+	}
 }
-
 /**
  * This Executor warrants task ordering for tasks with same key (key have to implement hashCode and equal methods correctly).
  */
 class OrderingExecutor implements Executor{
 
 	private final Executor delegate;
-	private final Map<Object, Queue<Runnable>> keyedTasks = new HashMap<Object, Queue<Runnable>>();
+	private final Map<Object, LinkedList<Runnable>> keyedTasks = new ConcurrentHashMap<>();
 
 	public OrderingExecutor(Executor delegate){
 		this.delegate = delegate;
@@ -43,64 +43,68 @@ class OrderingExecutor implements Executor{
 		delegate.execute(task);
 	}
 
+	// Producer
 	public void execute(Runnable task, Object key) {
 		if (key == null){ // if key is null, execute without ordering
 			execute(task);
 			return;
 		}
 
-		boolean first;
-		Runnable wrappedTask;
-		synchronized (keyedTasks){
-			Queue<Runnable> dependencyQueue = keyedTasks.get(key);
-			first = (dependencyQueue == null);
-			if (dependencyQueue == null){
-				dependencyQueue = new LinkedList<Runnable>();
-				keyedTasks.put(key, dependencyQueue);
+		LinkedList<Runnable> dependencyQueue = keyedTasks.get(key);
+		if (dependencyQueue == null){
+			dependencyQueue = new LinkedList<>();
+			keyedTasks.put(key, dependencyQueue);
+		}
+
+		synchronized (dependencyQueue) {
+			if(dependencyQueue.size() == 0) { // ProcessTask that process the queue has exited
+				dependencyQueue.offer(task);
+				delegate.execute(new ProcessTask(dependencyQueue));
+			} else {
+				dependencyQueue.offer(task);
 			}
-
-			wrappedTask = wrap(task, dependencyQueue, key);
-			if (!first)
-				dependencyQueue.add(wrappedTask);
 		}
-
-		// execute method can block, call it outside synchronize block
-		if (first)
-			delegate.execute(wrappedTask);
-
 	}
 
-	private Runnable wrap(Runnable task, Queue<Runnable> dependencyQueue, Object key) {
-		return new OrderedTask(task, dependencyQueue, key);
+	// Not a good way
+	public void removeKey(Object key) {
+		LinkedList<Runnable> dependencyQueue = keyedTasks.get(key);
+		if(dependencyQueue == null) return;
+		synchronized (dependencyQueue) {
+			// drain queue
+			dependencyQueue.clear();
+		}
+		keyedTasks.remove(key);
 	}
 
-	class OrderedTask implements Runnable{
+	// Consumer
+	class ProcessTask implements Runnable{
+		private final LinkedList<Runnable> dependencyQueue;
 
-		private final Queue<Runnable> dependencyQueue;
-		private final Runnable task;
-		private final Object key;
-
-		public OrderedTask(Runnable task, Queue<Runnable> dependencyQueue, Object key) {
-			this.task = task;
+		public ProcessTask(LinkedList<Runnable> dependencyQueue) {
 			this.dependencyQueue = dependencyQueue;
-			this.key = key;
 		}
-
 		@Override
 		public void run() {
-			try{
-				task.run();
-			} finally {
-				Runnable nextTask = null;
-				synchronized (keyedTasks){
-					if (dependencyQueue.isEmpty()){
-						keyedTasks.remove(key);
-					}else{
-						nextTask = dependencyQueue.poll();
-					}
+			Runnable task = null;
+			Runnable nextTask = null;
+			synchronized (dependencyQueue) { // atomic get element and check the next element
+				task = dependencyQueue.poll();
+				nextTask = dependencyQueue.peek();
+			}
+
+			while(task != null) {
+				try {
+					task.run();
+				} catch (Throwable x) {
+					LogFactory.get().error(x);
 				}
-				if (nextTask!=null)
-					delegate.execute(nextTask);
+				if(nextTask != null) {
+					synchronized (dependencyQueue) {
+						task = dependencyQueue.poll();
+						nextTask = dependencyQueue.peek();
+					}
+				} else break; // release the current thread, not block.
 			}
 		}
 	}

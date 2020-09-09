@@ -26,7 +26,7 @@ public class ApplicationRequestDispatcher implements RequestDispatcher {
 		request.setUri(uri);
 		
 		HttpProcessor processor = new HttpProcessor();
-		processor.execute(request.getSocket(), request,response);
+		processor.execute(request.getSocket(), request, response);
 		request.setForwarded(true);
 
 	}

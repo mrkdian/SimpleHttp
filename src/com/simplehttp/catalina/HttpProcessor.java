@@ -42,15 +42,11 @@ public class HttpProcessor {
             else
                 workingServlet = DefaultServlet.getInstance();
 
+            workingServlet.service(request, response);
 
-
-
-            List<Filter> filters = request.getContext().getMatchedFilters(request.getRequestURI());
-            ApplicationFilterChain filterChain = new ApplicationFilterChain(filters, workingServlet);
-            filterChain.doFilter(request, response);
-
-            if(request.isForwarded())
+            if(request.isForwarded() || sc.socket().isClosed())
                 return;
+
 
             byte[] responseBytes;
             if(Constant.CODE_200 == response.getStatus()) {
@@ -70,9 +66,10 @@ public class HttpProcessor {
             LogFactory.get().error(e);
             byte[] responseBytes = handle500(e);
             try {
-                sc.write(ByteBuffer.wrap(responseBytes));
+                if(!sc.socket().isClosed())
+                    writeToChannel(sc, ByteBuffer.wrap(responseBytes));
             } catch (IOException e1) {
-                e1.printStackTrace();
+                LogFactory.get().error(e);
             }
         }
     }
@@ -93,11 +90,9 @@ public class HttpProcessor {
             else
                 workingServlet = DefaultServlet.getInstance();
 
-            List<Filter> filters = request.getContext().getMatchedFilters(request.getRequestURI());
-            ApplicationFilterChain filterChain = new ApplicationFilterChain(filters, workingServlet);
-            filterChain.doFilter(request, response);
+            workingServlet.service(request, response);
 
-            if(request.isForwarded())
+            if(request.isForwarded() || s.isClosed())
                 return;
 
             byte[] responseBytes;
@@ -120,7 +115,7 @@ public class HttpProcessor {
             try {
                 s.getOutputStream().write(responseBytes);
             } catch (IOException e1) {
-                e1.printStackTrace();
+                LogFactory.get().error(e);
             }
         }
     }
